@@ -1,0 +1,102 @@
+package au.com.ing.microservice.products.resource;
+
+import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8_VALUE;
+
+import javax.inject.Inject;
+
+import org.springframework.beans.BeanUtils;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import lombok.extern.slf4j.Slf4j;
+
+import au.com.ing.microservice.commons.core.exception.BusinessException;
+import au.com.ing.microservice.commons.core.exception.DomainStatus;
+import au.com.ing.microservice.commons.core.exception.ExceptionCode;
+import au.com.ing.microservice.commons.core.exception.TechnicalException;
+import au.com.ing.microservice.products.domain.dto.AccountDto;
+import au.com.ing.microservice.products.domain.service.AccountService;
+import au.com.ing.microservice.products.graphql.GraphQLService;
+import au.com.ing.microservice.products.resource.api.AccountNumberResponse;
+import au.com.ing.microservice.products.resource.api.AccountResponse;
+import au.com.ing.microservice.products.resource.api.NewAccountRequest;
+import au.com.ing.microservice.products.resource.api.UpdateCommand;
+import au.com.ing.microservice.products.resource.security.Capability;
+
+import graphql.ExecutionResult;
+import org.springframework.http.ResponseEntity;
+
+@RestController
+@RequestMapping(
+    path = "/accounts",
+    produces = APPLICATION_JSON_UTF8_VALUE)
+@Slf4j
+public class AccountsResource {
+    private static final String OPERATION_NOT_KNOWN = "Unrecognized Operation: {}";
+    @Inject
+    private AccountService accountService;
+
+    
+    @Inject
+    GraphQLService graphQLService;
+    
+    @PreAuthorize("hasAuthority('" + Capability.GET_ACCOUNTS + "')")
+    @ResponseStatus(HttpStatus.OK)
+    @PostMapping
+    public ResponseEntity<Object> getAccounts(@RequestBody String query) throws TechnicalException{
+        ExecutionResult execute = graphQLService.getGraphQL().execute(query);
+
+        return new ResponseEntity<>(execute, HttpStatus.OK);
+    }
+
+    /*@PreAuthorize("hasAuthority('" + Capability.NEW_ACCOUNT + "')")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping
+    public AccountNumberResponse newAccount(@RequestBody NewAccountRequest newAccountRequest) throws BusinessException {
+        AccountNumberResponse response = new AccountNumberResponse();
+        AccountDto newAccountDto = AccountDto.builder().customerId(newAccountRequest.getCustomerId()).alias(newAccountRequest.getAlias()).build();
+        response.setAccountNo(accountService.createAccount(newAccountDto));
+        return response;
+    }*/
+
+    @PreAuthorize("hasAuthority('" + Capability.UPDATE + "')")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @PatchMapping(
+        value = { "/{accountNo}" })
+    public AccountResponse update(@PathVariable long accountNo, @RequestBody UpdateCommand updateCommand) throws TechnicalException, BusinessException {
+        AccountResponse accountResponse = new AccountResponse();
+        switch (updateCommand.getCommand()) {
+            case DEPOSIT:
+                BeanUtils.copyProperties(accountService.deposit(accountNo,updateCommand.getAmount()), accountResponse);
+                break;
+            case WITHDRAW:
+                BeanUtils.copyProperties(accountService.withdraw(accountNo,updateCommand.getAmount()), accountResponse);
+                break;
+            default:
+                TechnicalException commandNotSupported =
+                        new TechnicalException(ExceptionCode.NO_HANDLER_FOUND_EXCEPTION,
+                                DomainStatus.WRONG_COMMAND,
+                                String.format(OPERATION_NOT_KNOWN,updateCommand.getCommand()));
+                throw commandNotSupported;
+        }
+        return accountResponse;
+    }
+    
+
+    @PreAuthorize("hasAuthority('" + Capability.DELETE_ACCOUNT + "')")
+    @ResponseStatus(HttpStatus.OK)
+    @DeleteMapping(
+        value = { "/{accountNo}" })
+    public void deleteAccount(@PathVariable long accountNo) throws TechnicalException {
+        accountService.delete(accountNo);
+    }
+}
