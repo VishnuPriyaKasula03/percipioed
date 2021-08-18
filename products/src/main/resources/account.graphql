@@ -1,0 +1,14 @@
+schema {
+ query: Query
+}
+
+type Query {
+ account(id: Long): AccountResponse
+}
+
+type AccountResponse {
+  customerId: Long
+  accountNo: Long
+  alias: String
+  balance: BigDecimal
+}
