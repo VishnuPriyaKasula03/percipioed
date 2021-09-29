@@ -1,0 +1,17 @@
+type Query {
+    customer(customerId: Float): CustomerDto
+}
+type CustomerDto @key(fields: "customerId") {
+    customerId: Float
+    firstName: String
+    lastName: String
+    active: Boolean
+  }
+type Mutation {
+    createCustomer(firstName: String, lastName: String): CustomerIdResponse
+    deleteCustomer(customerId: Float): String
+}
+type CustomerIdResponse {
+    customerId: Float
+} 
+ 

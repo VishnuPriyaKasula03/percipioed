@@ -1,0 +1,33 @@
+type Query
+{
+		account(id: Float): AccountResponse
+		
+}
+type AccountResponse @key(fields: "accountNo")
+{
+  customerId:Float
+  accountNo: Float
+  alias: String
+  balance: Float
+  active: Boolean
+}
+type CustomerDto @key(fields: "customerId") @extends {
+  customerId:Float @external
+  accounts: [AccountResponse] 
+}
+type Mutation
+{
+    createAccount(customerId:Float,alias:String):AccountNumberResponse
+    deleteAccount(accountNo:Float):String
+    updateAccount(accountNo:Float,command:String,amount:Float):AccountResponse
+}
+
+type AccountNumberResponse
+{
+    accountNo:Float
+}
+
+
+
+
+
